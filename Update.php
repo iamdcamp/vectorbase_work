@@ -98,7 +98,7 @@ The first line is the column header list, each describing an updatable field
 in the database for "downloadable_file" nodes. Every subsequent line represents
 an individual node, and Each value can be updated EXCEPT the first, which is the
 primary key ("nid").  When all changes are made to this file, the "-m update" version of this
-script will take these values and update the drupal database.
+script will take these values and update the drupal database'.
 
 
 USAGE;
@@ -343,10 +343,10 @@ if($mode === 'generate') {
 		fwrite($log, "\nProblem with drupal query.  EntityFieldQuery did not return a \"node\" index.");
 		print 'Problem with drupal query.';
 	}
-}
 
-fclose($log);
-print "Nodes updated: $nodesUpdated out of $updatableNodesTotal\nDone.\n";
+	fclose($log);
+	print "Nodes updated: $nodesUpdated out of $updatableNodesTotal\nDone.\n";
+}
 
 /**
  * Extends php.net/manual/en/function.fputcsv.php 
@@ -403,7 +403,7 @@ function validateDataFileDataCsv($csvArray) {
 		$errorArray[] = 'Provided data was empty or null';
 		return $errorArray;
 	}
-	$errorArray = array_merge($errorArray, validateFilename($csvArray[NEW_FILENAME]));
+	$errorArray = array_merge($errorArray, filenameValidator($csvArray[NEW_FILENAME]));
 	$errorArray = array_merge($errorArray, validateDescription($csvArray[NEW_DESC]));
 	return $errorArray;
 }
@@ -415,7 +415,7 @@ function validateDataFileDataCsv($csvArray) {
  * @param string $filename Name of the file
  * @return srting[] A list of errors, if they occur. An empty array indicates a valid name.
  */
-function validateFilename($filename) {
+function filenameValidator($filename) {
 
 	$errorArray = array();
 	$fileNameParts = explode('.', $filename);
