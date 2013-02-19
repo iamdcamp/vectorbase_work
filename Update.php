@@ -345,8 +345,10 @@ if($mode === 'generate') {
 	}
 
 	fclose($log);
-	print "Nodes updated: $nodesUpdated out of $updatableNodesTotal\nDone.\n";
+	print "Nodes updated: $nodesUpdated out of $updatableNodesTotal\n";
 }
+
+print "Done.\n";
 
 /**
  * Extends php.net/manual/en/function.fputcsv.php 
@@ -418,7 +420,8 @@ function validateDataFileDataCsv($csvArray) {
 function filenameValidator($filename) {
 
 	$errorArray = array();
-	$fileNameParts = explode('.', $filename);
+	
+	$fileNameParts = array_reverse(array_map('strrev', explode('.', strrev($filename), 3)));
 	if(count($fileNameParts) !== 2 && count($fileNameParts) !== 3) {
 		$errorArray[] = "Filename ($filename) does not have the expected two or three parts separated by periods";
 		return $errorArray;
@@ -493,32 +496,38 @@ function filenameValidator($filename) {
 	$bodyPartIndex++;
 
 	// Check the version
-	$v = explode('-', $bodyParts[$bodyPartIndex]);
+	//$v = explode('-', $bodyParts[$bodyPartIndex]);
 
 	$haveVersionDate = false;
 
-	if(count($v) === 1 || !is_numeric($v[0])) {
+	// skip the "version" field as its format is wonky and not worth looking at right now.
+	if($bodyPartIndex < sizeof($bodyParts) - 1) {
+		$bodyPartIndex++;
+		$haveVersionDate = true;
+	}
+
+
+	/*if(count($v) === 1 || !is_numeric($v[0])) {
 		if(!is_numeric(str_replace('v', '', $v[count($v) - 1]))) {
 			$errorArray[] = "File version ({$bodyParts[$bodyPartIndex]}) does not contain a valid number";
 		}
 		$haveVersionDate = true;
 		$bodyPartIndex++;
-	} 
-
-	// Check to see if we still have another field to check, if so, this will be a date field to check.
-	if($bodyPartIndex < count($bodyParts)) {
+	}*/ 
+	if($bodyPartIndex < sizeof($bodyParts)) {
 		$dateParts = explode('-', $bodyParts[$bodyPartIndex]);
 		// checkdate(month, day, year) - so dumb that ordering, right?
-		if(count($dateParts) > 3 || count($dateParts) < 2 ||
-				(count($dateParts) === 3 && !checkdate($dateParts[1],$dateParts[2], $dateParts[0])) ||
+		if(count($dateParts) <= 3 && count($dateParts) >= 2 && array_reduce($dateParts, 'is_numeric', true)) {
+			if((count($dateParts) === 3 && !checkdate($dateParts[1],$dateParts[2], $dateParts[0])) ||
 				(count($dateParts) === 2 && !checkdate($dateParts[1], '01', $dateParts[0]))) {
-			$errorArray[] = 'File date (' . $bodyParts[$bodyPartIndex] . ') is not a valid date';
+				$errorArray[] = 'File date (' . $bodyParts[$bodyPartIndex] . ') is not a valid date';
+			}
 		}
 		$haveVersionDate = true;
 	}
 
 	if(!$haveVersionDate) {
-		$errorArray[] = 'Missing proper version and/or date field(s)';
+		$errorArray[] = 'Missing version and/or date field(s)';
 	}
 
 	return $errorArray; 
