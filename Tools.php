@@ -34,4 +34,3 @@ function better_fputcsv($handle, $fields, $delimiter = ',', $enclosure = '"', $e
 	fwrite($handle, "\n");
 }
 
-

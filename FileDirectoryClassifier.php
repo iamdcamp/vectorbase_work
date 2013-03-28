@@ -15,13 +15,15 @@ $phase = drupal_bootstrap(DRUPAL_BOOTSTRAP_FULL);
 print "Setup complete.\n";
 
 $time = time();
-$logPath = './FileDirectoryClassifier_' . $time . '.log';
-$outPath = './FileDirectoryClassifer_' . $time . '.csv';
+$logPath = "./$time.log";
+$outPath = "./$time.csv";
 $log = fopen($logPath, 'w');
 $out = fopen($outPath, 'w');
 print "Logging errors to $logPath.\n";
 print "Writing output to $outPath.\n";
 
+CONST FILE_PUB_PATH = 'file_public_path';
+CONST NEW_FILE_PUB_PATH = '/vectorbase/web/root/sites/default/files/ftp';
 CONST FILENAME = 'filename';
 CONST MOVED = 'moved';
 CONST DESTINATION = 'destination'; 
@@ -32,21 +34,19 @@ $query = new EntityFieldQuery();
 $query->entityCondition('entity_type', 'node');
 $query->propertyCondition('type', 'downloadable_file');
 $result = $query->execute();
-$errors = array();
 
 if(isset($result['node'])) {
 	$originalPubPath = variable_get(FILE_PUB_PATH, 'sites/default/files/ftp');
-	variable_set(FILE_PUB_PATH, '/vectorbase/web/root/sites/default/files/ftp');
+	variable_set(FILE_PUB_PATH, NEW_FILE_PUB_PATH);
 	better_fputcsv($out, $columns, ',', '"', '"'); // Create headers for output.
 	$details = null;
 	foreach(array_keys($result['node']) as $nodeId) {
-		
 		if(!empty($details)) {
-			better_fputcsv($out, ',', '"', '"');
+			better_fputcsv($out, $details, ',', '"', '"');
 		}
 		$details = array();
 		$details[FILENAME] = $nodeId;
-		$details[MOVED] = false;
+		$details[MOVED] = 'false';
 		$details[DESTINATION] = '';
 		$details[ORIGIN] = '';
 
@@ -57,12 +57,12 @@ if(isset($result['node'])) {
 		}
 		$fileObj = file_load($fileNode->field_file['und'][0]['fid']);
 		$details[FILENAME] = $fileObj->filename;	
-		$details[ORIGIN] = $fileObj->uri;
+		$details[ORIGIN] = dirname($fileObj->uri);
 		
-		$finalPath = variable_get(FILE_PUB_PATH, '/vectorbase/web/root/sites/default/files/ftp') . '/downloads';
+		$finalPath = 'downloads/managed';
 		if(!empty($fileNode->field_organism_taxonomy)) {
-			$orgName = taxonomy_term_load($fileNode->field_organism_taxonomy['und'][0]['tid']);
-			$orgName = str_replace(' ', '_', $orgName); // get rid of spaces
+			$orgTaxon = taxonomy_term_load($fileNode->field_organism_taxonomy['und'][0]['tid']);
+			$orgName = str_replace(' ', '_', $orgTaxon->name); // get rid of spaces
 			$orgName = strtolower($orgName); // make everything lowercase
 			$finalPath .= "/$orgName";
 		} else {
@@ -84,7 +84,7 @@ if(isset($result['node'])) {
 				continue;
 			}	
 			$root = $parents[count($parents) - 1];
-			$root = strtolower($root->shortname['und'][0]['value']);
+			$root = strtolower($root->field_shortname['und'][0]['value']);
 			$finalPath .= "/$root";
 			/*if(!is_dir($finalPath)) {
 				if(!mkdir($finalPath)) {
@@ -99,22 +99,44 @@ if(isset($result['node'])) {
 			continue;
 
 		}
-		$details[DESTINATION] = $finalPath;
+		$details[DESTINATION] = "public://$finalPath";
 		/*if(!is_dir($finalPath)) {
 			if(!mkdir($finalPath)) {
 				fwrite($log, "\nSkipping node $nodeId because we could not create directory \"$root\" in $finalPath.");
 				continue;
 			}
 		}*/
-		if(!empty($details[DESTINATION])) {
-			$details[MOVED] = true;
+		if(!empty($details[DESTINATION]) && $details[ORIGIN] !== $details[DESTINATION]) { 
+			//$orgName = str_replace(' ', '_', $orgTaxon->name); // get rid of spaces
+	//$originalPubPath = variable_get(FILE_PUB_PATH, 'sites/default/files/ftp');
+			$absoluteDestination = str_replace('public:/', variable_get(FILE_PUB_PATH, NEW_FILE_PUB_PATH), $details[DESTINATION]);
+			if(!file_prepare_directory($absoluteDestination, FILE_CREATE_DIRECTORY)) {
+				fwrite($log, "\nSkipping node $nodeId because we could not create directory \"$absoluteDestination\".");
+				continue;
+			}
+			$absoluteOrigin = str_replace('public:/', variable_get(FILE_PUB_PATH, NEW_FILE_PUB_PATH), $details[ORIGIN] . '/' . $details[FILENAME]);
+			if(!file_exists($absoluteOrigin)) {
+				fwrite($log, "\nSkipping node $nodeId because \"$absoluteOrigin\" does not exist.");
+				continue;
+			}
+			$newFile = file_move($fileObj, $details[DESTINATION] . '/' . trim($details[FILENAME]), FILE_EXISTS_REPLACE);
+			if($newFile !== false) {
+				$details[MOVED] = 'true';
+			} else {
+				fwrite($log, "\nSkiping node $nodeId because There was a problem moving the file {$details[FILENAME]} to \"{$details[DESTINATION]}\".");
+				continue;
+			}
+		} else {
+			$cause = empty($details[DESTINATION]) ? 'could not be determined' : 'did not change';
+			fwrite($log, "\nDestination for \"{$details[FILENAME]}\" $cause.");
 		}
-
-		// Yay, we have our directory. Now to move the file to its new home. For now though, just print where you'd move it to.
-		// Another thought. Create a csv report listing each existing file, where it will be moved to, and if it can't be moved for some reason, list that.
-		// 	Have a "able to move/failed to move" column.
-
 	}
+
+	// Print out the last file's detials.
+	if(!empty($details)) {
+		better_fputcsv($out, $details, ',', '"', '"');
+	}
+
 	fclose($out);
 	fclose($log);
 	variable_set(FILE_PUB_PATH, $originalPubPath); // set this value back to the way it was
