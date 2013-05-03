@@ -519,3 +519,9 @@ function validateDescription($description) {
 	return $errorArray;
 }
 
+
+function returnfalse() {
+
+return false;
+
+}
