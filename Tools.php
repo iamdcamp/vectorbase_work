@@ -39,3 +39,4 @@ return 0;
 }
 
 echo "Done\n";
+"This is a hotfix!\n";
