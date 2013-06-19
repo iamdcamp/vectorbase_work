@@ -37,3 +37,5 @@ function better_fputcsv($handle, $fields, $delimiter = ',', $enclosure = '"', $e
 function aUselessFcnForTest() {
 return 0;
 }
+
+echo "Done\n";
